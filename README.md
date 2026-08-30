@@ -42,7 +42,7 @@ core/
 scripts/
   dist.mjs             打包（electron-builder）
   gen-icon.mjs         垃圾桶图标生成（纯 Node）
-  cdp-shot.mjs / shot.ps1   调试截图工具
+  cdp-shot.mjs / shot.ps1   调试截图工具（输出落 _tmp/）
 test/scan.test.mjs     扫描引擎测试
 ```
 
@@ -61,19 +61,18 @@ test/scan.test.mjs     扫描引擎测试
 
 ```bash
 cd /d/frank/ws-cleaner
-unset ELECTRON_RUN_AS_NODE   # 关键！本环境该变量会让 electron 退化成纯 node
-pnpm dev                     # 或 ./node_modules/electron/dist/electron.exe .
+pnpm dev                     # 启动器已自动剔除 ELECTRON_RUN_AS_NODE，无需手动 unset
 pnpm test                    # node --test
 pnpm dist                    # 打包（版本自动 = 0.1.<提交数>）
 ```
 
 ## 环境坑（新环境必读）
 
-1. **`ELECTRON_RUN_AS_NODE=1`** 会让 `electron .` 变成纯 node（`require('electron')` 返回路径字符串）。启动前 unset。
+1. **`ELECTRON_RUN_AS_NODE=1`** 会让 `electron .` 变成纯 node（`require('electron')` 返回路径字符串）。`pnpm dev` 已改走 `scripts/dev.mjs` 启动器自动删掉该变量；直接跑 `electron .` 的话仍需先 `unset ELECTRON_RUN_AS_NODE`。
 2. **electron 二进制曾手动拷贝**：网络下载失败时，从 `D:\frank\miraquota-win\node_modules\electron\dist` 复制到本项目 `node_modules/electron/dist`，并写 `node_modules/electron/path.txt`（内容 `electron.exe`，不带换行）。缓存 zip 在 `~/AppData/Local/electron/Cache/electron-v38.8.6-win32-x64.zip`。重装 node_modules 需重做。
 3. electron postinstall 被 pnpm 拦截的问题已在 `pnpm-workspace.yaml`（`allowBuilds: electron: true`）解决。
-4. 调试：`electron . --remote-debugging-port=9334` + CDP 读真实 DOM；`scripts/shot.ps1` 用 PrintWindow 抓窗口（**别用 CopyFromScreen**，远程会话下是空白伪影）。
-5. `pnpm dist` 尚未实跑验证（网络问题可能重现，打包时用 `ELECTRON_BUILDER_CACHE` 或镜像兜底）。
+4. 调试：`electron . --remote-debugging-port=9334` + CDP 读真实 DOM；`scripts/shot.ps1` 用 PrintWindow 抓窗口（**别用 CopyFromScreen**，远程会话下是空白伪影）。截图等临时产物统一落 `_tmp/`（已 gitignore）。
+5. `pnpm dist` 已实跑通过（产出 NSIS Setup + portable，版本 `0.1.<提交数>`）。若 electron 下载失败，用本机缓存 `~/AppData/Local/electron/Cache/` 或设 `ELECTRON_BUILDER_CACHE`；electron-builder 的 nsis/winCodeSign 缓存在 `~/AppData/Local/electron-builder/Cache/`。
 
 ## 已知限制
 
