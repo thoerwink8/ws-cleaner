@@ -48,9 +48,13 @@ function send(channel, payload) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
 }
 
-/** 静默后台扫描：结果流式上屏，结束时写缓存 */
-async function runScan(settings) {
+/** 静默后台扫描：结果流式上屏，结束时写缓存
+ *  @param {{ streamUnenriched?: boolean }} [opts]
+ *    streamUnenriched=false：等补完 turnCount 再推会话（删除后立刻重扫必须关，否则半成品会把轮次盖空）
+ */
+async function runScan(settings, opts = {}) {
   const seq = ++scanSeq;
+  const streamUnenriched = opts.streamUnenriched !== false;
   const push = (kind, items) => {
     if (seq !== scanSeq) return; // 已有更新的扫描，丢弃旧推送
     send('scan:batch', { kind, items });
@@ -65,6 +69,7 @@ async function runScan(settings) {
       idleDays: settings.idleDays,
       inUseMin: settings.inUseMin,
       onRepo, onSession,
+      streamUnenriched,
     });
     if (seq !== scanSeq) return;
     writeCache(result);
@@ -162,7 +167,7 @@ app.whenReady().then(async () => {
     for (const it of items) {
       let r;
       if (it.kind === 'session') {
-        r = await deleteSession(it).catch((e) => ({ ok: false, message: String(e?.message || e) }));
+        r = await deleteSession(it, ctx).catch((e) => ({ ok: false, message: String(e?.message || e) }));
       } else if (it.kind === 'worktree') {
         r = await deleteWorktree(it, ctx).catch((e) => ({ ok: false, message: String(e?.message || e) }));
       } else if (it.kind === 'project') {
@@ -172,8 +177,17 @@ app.whenReady().then(async () => {
       }
       results.push({ item: { kind: it.kind, path: it.path, name: it.name }, ...r });
     }
-    // 删完立刻后台重扫，刷新列表
-    runScan(loadSettings());
+    // 同步剔除缓存里已删项，再后台重扫（前端可乐观更新，缓存不倒退）
+    const cached2 = readCache();
+    if (cached2) {
+      const gone = new Set(results.filter((r) => r.ok).map((r) => `${r.item.kind}|${r.item.path}`));
+      if (gone.size) {
+        cached2.projects = (cached2.projects ?? []).filter((p) => !gone.has(`${p.kind}|${p.path}`) && !gone.has(`project|${p.path}`) && !gone.has(`worktree|${p.path}`));
+        cached2.sessions = (cached2.sessions ?? []).filter((s) => !gone.has(`session|${s.path}`));
+        writeCache(cached2);
+      }
+    }
+    runScan(loadSettings(), { streamUnenriched: false });
     return results;
   });
 
@@ -184,9 +198,7 @@ app.whenReady().then(async () => {
   ipcMain.on('win:min', () => win.minimize());
   ipcMain.on('win:max', () => { if (win.isMaximized()) win.unmaximize(); else win.maximize(); });
   ipcMain.on('app:quit', () => { app.isQuitting = true; app.quit(); });
-
-  // 首次启动自动扫一遍
-  runScan(settings);
+  // 扫描由渲染进程 scan:start 驱动（会先推缓存再重扫），避免启动时双重扫描
 });
 
 app.on('window-all-closed', () => app.quit());

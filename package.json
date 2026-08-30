@@ -9,7 +9,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "electron .",
+    "dev": "node scripts/dev.mjs",
     "test": "node --test",
     "icons": "node scripts/gen-icon.mjs",
     "dist": "node scripts/dist.mjs",

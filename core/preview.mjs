@@ -122,6 +122,7 @@ export async function previewSession(path, agent) {
   else return { previewable: false, message: '此会话类型暂不支持预览' };
 
   const messages = parsed.messages.slice(-MAX_MESSAGES);
+  const turnCount = parsed.messages.filter((m) => m.role === 'user').length;
   return {
     previewable: true,
     agent,
@@ -129,8 +130,67 @@ export async function previewSession(path, agent) {
     name: basename(path),
     cwd: meta.cwd,
     messageCount: parsed.messages.length,
+    turnCount,
     startAt: parsed.startAt,
     endAt: parsed.endAt,
-    messages,
+    // 面板展示：最近的消息在上
+    messages: [...messages].reverse(),
   };
+}
+
+/**
+ * 轻量摘要：扫描列表用。抽轮次 + 最近一条用户消息作预览片段。
+ * orca 不解析。
+ */
+export async function peekSessionSummary(path, agent) {
+  if (agent === 'orca') return { turnCount: null, snippet: null, messageCount: null };
+  try {
+    const buf = await readFile(path, { encoding: 'utf8' });
+    // 超大文件只看尾部，足够拿最近摘要；轮次用全文粗计
+    const MAX_PEEK = 512 * 1024;
+    const head = buf.length > MAX_PEEK * 2 ? buf.slice(0, 64 * 1024) : buf;
+    const tail = buf.length > MAX_PEEK ? buf.slice(-MAX_PEEK) : buf;
+    const parseChunk = (text) => text.split('\n').filter(Boolean).map((l) => {
+      try { return JSON.parse(l); } catch { return null; }
+    }).filter(Boolean);
+
+    const meta = { cwd: null };
+    let parsed;
+    if (agent === 'pi') parsed = parsePi(parseChunk(tail), meta);
+    else if (agent === 'claude') parsed = parseClaude(parseChunk(tail), meta);
+    else if (agent === 'codex') parsed = parseCodex(parseChunk(tail), meta);
+    else return { turnCount: null, snippet: null, messageCount: null };
+
+    // 轮次：优先用全文粗匹配，避免大文件全量 JSON.parse
+    let turnCount = 0;
+    if (agent === 'pi') {
+      turnCount = (buf.match(/"role"\s*:\s*"user"/g) || []).length;
+    } else if (agent === 'claude') {
+      turnCount = (buf.match(/"type"\s*:\s*"user"/g) || []).length;
+    } else if (agent === 'codex') {
+      turnCount = (buf.match(/"role"\s*:\s*"user"/g) || []).length;
+    }
+    if (!turnCount) turnCount = parsed.messages.filter((m) => m.role === 'user').length;
+
+    const lastUser = [...parsed.messages].reverse().find((m) => m.role === 'user')
+      || [...parsed.messages].reverse().find((m) => m.role === 'assistant');
+    const snippet = lastUser
+      ? truncate(String(lastUser.text).replace(/\s+/g, ' ').trim(), 120)
+      : '';
+
+    // cwd 偶尔只在文件头：尾部解析不到时再看一眼头部
+    if (!meta.cwd && head !== tail) {
+      if (agent === 'pi') parsePi(parseChunk(head), meta);
+      else if (agent === 'codex') parseCodex(parseChunk(head), meta);
+    }
+
+    return {
+      turnCount,
+      snippet: snippet || null,
+      messageCount: turnCount ? turnCount * 2 : parsed.messages.length, // 粗估，列表主要用 turnCount
+      cwd: meta.cwd || null,
+    };
+  } catch {
+    return { turnCount: null, snippet: null, messageCount: null };
+  }
 }

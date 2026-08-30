@@ -112,8 +112,8 @@ export async function deleteWorktree(item, ctx) {
 }
 
 /** 删除 AI 会话文件（硬删）。pi 的会话目录删除后顺手清空目录。 */
-export async function deleteSession(item) {
-  const busy = checkInUse(item, { inUseMin: 15 });
+export async function deleteSession(item, ctx = {}) {
+  const busy = checkInUse(item, { inUseMin: ctx.inUseMin ?? 15 });
   if (busy) return { ok: false, message: busy };
   try {
     await unlink(item.path);

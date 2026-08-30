@@ -16,6 +16,7 @@ import { readdir, stat, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, basename, dirname, resolve, normalize, sep } from 'node:path';
 import { homedir } from 'node:os';
+import { peekSessionSummary } from './preview.mjs';
 
 const execFileP = promisify(execFile);
 const GIT_TIMEOUT = 8000;
@@ -135,7 +136,8 @@ async function enrichRepo(path, mainRepo = null) {
   const lastActivityAt = lastCommit != null && /^\d+$/.test(lastCommit) ? Number(lastCommit) : null;
   return {
     ...base,
-    kind: 'project',
+    // worktree 必须标 kind=worktree，否则前端会误走「项目→回收站」路径
+    kind: isWt ? 'worktree' : 'project',
     isWorktree: isWt,
     mainRepo,
     gitDir: gitDir || null,
@@ -282,18 +284,50 @@ function covers(projectPath, cwd) {
   return c === p || c.startsWith(p + '/');
 }
 
+/** 并发给会话补 snippet / turnCount（列表预览用） */
+async function enrichSessionSnippets(sessions, concurrency = 16) {
+  let i = 0;
+  const workers = Array.from({ length: Math.min(concurrency, sessions.length) }, async () => {
+    while (i < sessions.length) {
+      const s = sessions[i++];
+      if (!s.previewable) {
+        s.snippet = '';
+        s.turnCount = null;
+        continue;
+      }
+      try {
+        const peek = await peekSessionSummary(s.path, s.agent);
+        s.snippet = peek.snippet || '';
+        s.turnCount = peek.turnCount ?? null;
+        if (!s.cwd && peek.cwd) s.cwd = peek.cwd;
+      } catch {
+        s.snippet = '';
+        s.turnCount = null;
+      }
+    }
+  });
+  await Promise.all(workers);
+}
+
 /**
  * 全量扫描：项目 + 会话 + 交叉标注。
  * @returns {{ projects: any[], sessions: any[], summary: any }}
  */
-export async function scanAll({ roots, sessionRoots, idleDays, inUseMin, onRepo, onSession, onProgress }) {
+export async function scanAll({ roots, sessionRoots, idleDays, inUseMin, onRepo, onSession, onProgress, streamUnenriched = true }) {
   const projects = await discoverRepos(roots, onRepo);
   let sessions = [];
   const sr = sessionRoots || {};
-  if (sr.pi) sessions = sessions.concat(await scanPi(sr.pi));
-  if (sr.claude) sessions = sessions.concat(await scanClaude(sr.claude));
-  if (sr.codex) sessions = sessions.concat(await scanCodex(sr.codex));
-  if (sr.orca) sessions = sessions.concat(await scanOrca(sr.orca));
+  const pushSessions = (batch) => {
+    sessions = sessions.concat(batch);
+    // 半成品没有 turnCount。删除后立刻重扫时不要先推，否则会把已有轮次盖掉，按轮次筛选暂时全空。
+    if (streamUnenriched) for (const s of batch) onSession?.(s);
+  };
+  if (sr.pi) pushSessions(await scanPi(sr.pi));
+  if (sr.claude) pushSessions(await scanClaude(sr.claude));
+  if (sr.codex) pushSessions(await scanCodex(sr.codex));
+  if (sr.orca) pushSessions(await scanOrca(sr.orca));
+  // 列表摘要：补完后再推一次，渲染层按 path 合并
+  await enrichSessionSnippets(sessions);
   for (const s of sessions) onSession?.(s);
 
   // 交叉标注
