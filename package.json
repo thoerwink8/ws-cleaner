@@ -1,0 +1,64 @@
+{
+  "name": "ws-cleaner",
+  "version": "0.1.0",
+  "description": "工作区清理器：盘点本机代码项目 / git worktree / AI 会话，删除闲置项（项目移入系统回收站，worktree 与会话硬删）",
+  "type": "module",
+  "private": true,
+  "main": "app/main.mjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "electron .",
+    "test": "node --test",
+    "icons": "node scripts/gen-icon.mjs",
+    "dist": "node scripts/dist.mjs",
+    "postinstall": "node scripts/gen-icon.mjs"
+  },
+  "devDependencies": {
+    "electron": "^38.1.0",
+    "electron-builder": "25.1.8"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "electron-winstaller",
+      "@electron/rebuild"
+    ]
+  },
+  "build": {
+    "appId": "local.wscleaner.win",
+    "productName": "WorkspaceCleaner",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "app/**",
+      "core/**",
+      "package.json"
+    ],
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    }
+  },
+  "license": "MIT"
+}
