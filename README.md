@@ -41,6 +41,7 @@ core/
   settings.mjs         设置持久化（~/.ws-cleaner/settings.json）
 scripts/
   dist.mjs             打包（electron-builder）
+  hooks/pre-push       push 前自动打包（需 git config core.hooksPath scripts/hooks）
   gen-icon.mjs         垃圾桶图标生成（纯 Node）
   cdp-shot.mjs / shot.ps1   调试截图工具（输出落 _tmp/）
 test/scan.test.mjs     扫描引擎测试
@@ -65,6 +66,14 @@ pnpm dev                     # 启动器已自动剔除 ELECTRON_RUN_AS_NODE，�
 pnpm test                    # node --test
 pnpm dist                    # 打包（版本自动 = 0.1.<提交数>）
 ```
+
+克隆后启用「push 前自动打包」（每个 clone 各配一次，git 不同步 hook 配置）：
+
+```bash
+git config core.hooksPath scripts/hooks
+```
+
+启用后每次 `git push` 会先跑 `pnpm dist`，打包失败即中止 push，因此 `dist/` 里的 exe 始终等于远端最新代码。急着推可用 `git push --no-verify` 跳过。
 
 ## 环境坑（新环境必读）
 

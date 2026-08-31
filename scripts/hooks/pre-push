@@ -1,0 +1,23 @@
+#!/bin/sh
+# push 前自动打包：保证 dist/ 里的 exe 与推上去的代码同一份。
+# 打包失败则中止 push（宁可不推，也不让远端代码和本地产物对不上）。
+# 启用方式：git config core.hooksPath scripts/hooks
+# 临时跳过：git push --no-verify
+
+# stdin 每行 "<local ref> <local sha> <remote ref> <remote sha>"；
+# 纯删除分支（local sha 全零）不需要打包。
+need_build=0
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+  case "$local_sha" in
+    ''|0000000000000000000000000000000000000000) ;;
+    *) need_build=1 ;;
+  esac
+done
+[ "$need_build" = 1 ] || exit 0
+
+echo "[pre-push] 打包 dist/ ..."
+if ! pnpm run dist; then
+  echo "[pre-push] 打包失败，已中止 push（确需推送用 git push --no-verify）" >&2
+  exit 1
+fi
+echo "[pre-push] 打包完成"
