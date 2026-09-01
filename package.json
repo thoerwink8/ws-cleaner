@@ -1,6 +1,6 @@
 {
   "name": "ws-cleaner",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "工作区清理器：盘点本机代码项目 / git worktree / AI 会话，删除闲置项（项目移入系统回收站，worktree 与会话硬删）",
   "type": "module",
   "private": true,
