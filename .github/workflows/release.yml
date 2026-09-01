@@ -1,0 +1,77 @@
+# 打包并发布 Release：任何人从 GitHub 直接下载 exe，不必本地装 Node/pnpm。
+# 版本号沿用仓库口径 <major.minor>.<提交数>（app/version.mjs），所以每次 master 推送 = 一个新版本。
+name: release
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # 建 Release / 传附件
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 版本号靠 git rev-list --count，浅克隆会数错
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.2   # 与本机一致；升级本地 pnpm 时同步这里
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm test
+
+      - name: 计算版本号
+        id: ver
+        shell: bash
+        run: |
+          v=$(node -e "import('./app/version.mjs').then(m => console.log(m.resolveVersion(process.cwd())))")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "打包版本 $v"
+
+      - run: pnpm run dist
+
+      - name: 上传构建产物（每次运行都留一份，登录后可下）
+        uses: actions/upload-artifact@v4
+        with:
+          name: WorkspaceCleaner-${{ steps.ver.outputs.version }}
+          path: dist/*.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: 发布 Release（免登录下载）
+        if: github.ref == 'refs/heads/master'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="${{ steps.ver.outputs.version }}"
+          tag="v$v"
+          notes=$(printf '%s\n' \
+            '本机 Windows x64 构建，由 GitHub Actions 从 master 自动打包。' \
+            '' \
+            "- **WorkspaceCleaner Setup $v.exe** — 安装版（NSIS，一键安装，装完自动启动）" \
+            "- **WorkspaceCleaner $v.exe** — 免安装版（portable，下载即用）" \
+            '' \
+            '未做代码签名，Windows SmartScreen 可能提示"未知发布者"，选「更多信息 → 仍要运行」。')
+          gh release view "$tag" >/dev/null 2>&1 \
+            || gh release create "$tag" --title "WorkspaceCleaner $v" --notes "$notes" --latest
+          gh release upload "$tag" \
+            "dist/WorkspaceCleaner $v.exe" \
+            "dist/WorkspaceCleaner Setup $v.exe" \
+            --clobber
+          echo "已发布 https://github.com/${{ github.repository }}/releases/tag/$tag"

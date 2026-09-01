@@ -8,6 +8,19 @@ UI 视觉与工程结构同源 **miraquota**（`D:\frank\miraquota-win`，Electr
 
 ---
 
+## 下载
+
+[**⬇ 最新版本**](https://github.com/thoerwink8/ws-cleaner/releases/latest) —— Windows x64，两选一：
+
+| 文件 | 说明 |
+|---|---|
+| `WorkspaceCleaner Setup <版本>.exe` | 安装版（NSIS 一键安装，装完自动启动） |
+| `WorkspaceCleaner <版本>.exe` | 免安装版（portable，下载即用） |
+
+每次推 master 由 GitHub Actions（`.github/workflows/release.yml`）自动打包发布，版本号 = `0.1.<提交数>`，Release 与 master 代码一一对应。未做代码签名，SmartScreen 提示「未知发布者」时选「更多信息 → 仍要运行」。
+
+---
+
 ## 功能
 
 - **项目页**：扫描根目录下所有 git 仓库与 worktree，标注 闲置（默认 90 天）/ 使用中 / 有改动
@@ -39,9 +52,11 @@ core/
   actions.mjs          删除动作（回收站/硬删）+ 体积 + 使用中校验
   preview.mjs          会话只读预览解析（pi/claude/codex）
   settings.mjs         设置持久化（~/.ws-cleaner/settings.json）
+.github/workflows/
+  release.yml          推 master → windows-latest 打包 → 发 Release（对外下载唯一出口）
 scripts/
   dist.mjs             打包（electron-builder）
-  hooks/pre-push       push 前自动打包（需 git config core.hooksPath scripts/hooks）
+  hooks/pre-push       push 前本地打包自检（可选，需 git config core.hooksPath scripts/hooks）
   gen-icon.mjs         垃圾桶图标生成（纯 Node）
   cdp-shot.mjs / shot.ps1   调试截图工具（输出落 _tmp/）
 test/scan.test.mjs     扫描引擎测试
@@ -73,7 +88,9 @@ pnpm dist                    # 打包（版本自动 = 0.1.<提交数>）
 git config core.hooksPath scripts/hooks
 ```
 
-启用后每次 `git push` 会先跑 `pnpm dist`，打包失败即中止 push，因此 `dist/` 里的 exe 始终等于远端最新代码。急着推可用 `git push --no-verify` 跳过。
+启用后每次 `git push` 会先跑 `pnpm dist`，打包失败即中止 push，本地 `dist/` 里的 exe 始终等于远端最新代码。急着推可用 `git push --no-verify` 跳过。
+
+> 对外分发不依赖这个 hook：推上 master 后由 GitHub Actions 重新打包并发 Release，hook 只是本地「推之前先确认能打包」的自检。嫌慢可以不启用。
 
 ## 环境坑（新环境必读）
 
