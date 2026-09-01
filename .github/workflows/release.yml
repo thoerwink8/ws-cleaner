@@ -43,9 +43,7 @@ jobs:
           echo "version=$v" >> "$GITHUB_OUTPUT"
           echo "打包版本 $v"
 
-      # --publish never：CI 环境下 electron-builder 会自己找 GH_TOKEN 想发包，
-      # 发布这一步由下面的 gh release 负责，这里只打包。
-      - run: pnpm run dist -- --publish never
+      - run: pnpm run dist
 
       - name: 上传构建产物（每次运行都留一份，登录后可下）
         uses: actions/upload-artifact@v4

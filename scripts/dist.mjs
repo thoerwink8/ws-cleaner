@@ -24,7 +24,10 @@ const passthrough = versionAt >= 0
   : args;
 console.log(`[dist] version ${version}`);
 
-const r = spawnSync('pnpm', ['exec', 'electron-builder', '--win',
+// --publish never：CI 里 electron-builder 检测到 CI 就想自己发包，缺 GH_TOKEN 直接报错退出。
+// 发布由 .github/workflows/release.yml 的 gh release 负责，这里只打包。放在 passthrough 之前，
+// 手动想让它发包时 `pnpm dist --publish always` 仍能覆盖（yargs 后者胜）。
+const r = spawnSync('pnpm', ['exec', 'electron-builder', '--win', '--publish', 'never',
   `-c.extraMetadata.version=${version}`, ...passthrough],
   { cwd: ROOT, stdio: 'inherit', shell: true });
 
