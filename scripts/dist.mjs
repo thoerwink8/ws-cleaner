@@ -35,8 +35,6 @@ if (r.status === 0) {
   const distDir = join(ROOT, 'dist');
   const keep = new Set([
     `WorkspaceCleaner ${version}.exe`,
-    `WorkspaceCleaner Setup ${version}.exe`,
-    `WorkspaceCleaner Setup ${version}.exe.blockmap`,
   ]);
   let removed = 0;
   for (const name of readdirSync(distDir)) {

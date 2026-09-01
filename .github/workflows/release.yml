@@ -64,14 +64,10 @@ jobs:
           notes=$(printf '%s\n' \
             '本机 Windows x64 构建，由 GitHub Actions 从 master 自动打包。' \
             '' \
-            "- **WorkspaceCleaner Setup $v.exe** — 安装版（NSIS，一键安装，装完自动启动）" \
-            "- **WorkspaceCleaner $v.exe** — 免安装版（portable，下载即用）" \
+            "- **WorkspaceCleaner $v.exe** — 免安装版（portable，下载即用；2026-09-01 拍板只发这一个形态）" \
             '' \
             '未做代码签名，Windows SmartScreen 可能提示"未知发布者"，选「更多信息 → 仍要运行」。')
           gh release view "$tag" >/dev/null 2>&1 \
             || gh release create "$tag" --title "WorkspaceCleaner $v" --notes "$notes" --latest
-          gh release upload "$tag" \
-            "dist/WorkspaceCleaner $v.exe" \
-            "dist/WorkspaceCleaner Setup $v.exe" \
-            --clobber
+          gh release upload "$tag" "dist/WorkspaceCleaner $v.exe" --clobber
           echo "已发布 https://github.com/${{ github.repository }}/releases/tag/$tag"

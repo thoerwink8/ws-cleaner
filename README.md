@@ -10,12 +10,8 @@ UI 视觉与工程结构同源 **miraquota**（`D:\frank\miraquota-win`，Electr
 
 ## 下载
 
-[**⬇ 最新版本**](https://github.com/thoerwink8/ws-cleaner/releases/latest) —— Windows x64，两选一：
-
-| 文件 | 说明 |
-|---|---|
-| `WorkspaceCleaner Setup <版本>.exe` | 安装版（NSIS 一键安装，装完自动启动） |
-| `WorkspaceCleaner <版本>.exe` | 免安装版（portable，下载即用） |
+[**⬇ 最新版本**](https://github.com/thoerwink8/ws-cleaner/releases/latest) —— Windows x64，单文件免安装（portable），下载即用。
+（2026-09-01 拍板：只发 portable 一个形态；安装版与免安装版内容 99% 重复，砍掉安装版。）
 
 每次推 master 由 GitHub Actions（`.github/workflows/release.yml`）自动打包发布，版本号 = `0.1.<提交数>`，Release 与 master 代码一一对应。未做代码签名，SmartScreen 提示「未知发布者」时选「更多信息 → 仍要运行」。
 
@@ -98,7 +94,7 @@ git config core.hooksPath scripts/hooks
 2. **electron 二进制曾手动拷贝**：网络下载失败时，从 `D:\frank\miraquota-win\node_modules\electron\dist` 复制到本项目 `node_modules/electron/dist`，并写 `node_modules/electron/path.txt`（内容 `electron.exe`，不带换行）。缓存 zip 在 `~/AppData/Local/electron/Cache/electron-v38.8.6-win32-x64.zip`。重装 node_modules 需重做。
 3. electron postinstall 被 pnpm 拦截的问题已在 `pnpm-workspace.yaml`（`allowBuilds: electron: true`）解决。
 4. 调试：`electron . --remote-debugging-port=9334` + CDP 读真实 DOM；`scripts/shot.ps1` 用 PrintWindow 抓窗口（**别用 CopyFromScreen**，远程会话下是空白伪影）。截图等临时产物统一落 `_tmp/`（已 gitignore）。
-5. `pnpm dist` 已实跑通过（产出 NSIS Setup + portable，版本 `0.1.<提交数>`）。若 electron 下载失败，用本机缓存 `~/AppData/Local/electron/Cache/` 或设 `ELECTRON_BUILDER_CACHE`；electron-builder 的 nsis/winCodeSign 缓存在 `~/AppData/Local/electron-builder/Cache/`。
+5. `pnpm dist` 已实跑通过（产出 portable 单文件，版本 `0.1.<提交数>`）。若 electron 下载失败，用本机缓存 `~/AppData/Local/electron/Cache/` 或设 `ELECTRON_BUILDER_CACHE`；electron-builder 的 nsis/winCodeSign 缓存在 `~/AppData/Local/electron-builder/Cache/`。
 
 ## 已知限制
 
