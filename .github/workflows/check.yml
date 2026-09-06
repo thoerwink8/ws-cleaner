@@ -1,0 +1,22 @@
+# PR 闸：合并前必须绿。job 名叫 check，与 windsurf-dao 同口径——
+# 分支保护里 required_status_checks 认的就是这个名字，改名等于把闸摘了。
+#
+# 为什么不复用 release.yml：那个是 on push 打包发版，每次 master 推送 = 一个新版本。
+# 给它加 pull_request 触发会从 PR 里发版，是错的。检查和发版必须是两条路。
+name: check
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # 不跑 npm install：postinstall 会生成图标，测试用不上，装它只是让 CI 变慢变脆。
+      - run: node --test
